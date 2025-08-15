@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deepfakes — C1 Interactive Lesson (Single‑Device)</title>
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#111827; --muted:#1f2937; --card:#0b1220;
+      --ink:#e5e7eb; --ink-dim:#9ca3af; --accent:#60a5fa; --accent2:#22d3ee;
+      --good:#34d399; --bad:#f87171; --warn:#f59e0b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:linear-gradient(120deg,#0b1220,#0f172a);color:var(--ink)}
+    header{position:sticky;top:0;z-index:10;background:rgba(15,23,42,.9);backdrop-filter:blur(6px);border-bottom:1px solid #263043}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    h1{margin:0;font-size:clamp(22px,3.6vw,36px)}
+    .sub{color:var(--ink-dim);font-size:14px}
+    .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+    .tab{padding:10px 14px;border-radius:12px;background:#0c1426;border:1px solid #253046;color:#a6b5d4;cursor:pointer}
+    .tab.active{background:linear-gradient(90deg,#0b1220,#10192a);color:#fff;border-color:#3b82f6}
+    main section{display:none}
+    main section.active{display:block}
+    section.card{background:linear-gradient(180deg,#0a101d,#0e1628);border:1px solid #1e293b;border-radius:16px;padding:18px;margin:10px 0}
+    h2{margin:0 0 8px 0}
+    .grid{display:grid;gap:14px}
+    .two{grid-template-columns:1fr}
+    @media (min-width:900px){.two{grid-template-columns:1.2fr .8fr}}
+    .frame{aspect-ratio:16/9;background:radial-gradient(60% 60% at 50% 40%,#12213f,transparent 60%),linear-gradient(180deg,#08101e,#0e1628);border-radius:16px;border:1px solid #203049;display:grid;place-items:center}
+    .btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#081018;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#111827;color:var(--ink);border:1px solid #334155}
+    .badge{background:#0a1220;border:1px solid #263244;padding:6px 10px;border-radius:999px;color:#aad2ff;display:inline-block}
+    .note{width:100%;min-height:120px;background:#0a1220;border:1px solid #1e293b;border-radius:12px;color:var(--ink);padding:10px}
+    .tiny{font-size:12px;color:var(--ink-dim)}
+    /* Vocab selects */
+    .vrow{display:grid;grid-template-columns:1fr 220px;gap:10px;align-items:center;background:#0a1220;border:1px solid #1e293b;border-radius:10px;padding:8px}
+    select{background:#0e1527;border:1px solid #2a3a57;color:var(--ink);padding:8px;border-radius:8px}
+    option{color:var(--ink);background:#0e1527}
+    .ok{border-color:var(--good)!important}
+    .bad{border-color:var(--bad)!important}
+    /* Quiz */
+    .q{margin:10px 0;padding:10px;border:1px solid #263244;border-radius:12px;background:#0a1220}
+    .opt{display:block;margin:6px 0;padding:8px 10px;border:1px solid #2b3a57;border-radius:10px;cursor:pointer}
+    .opt.correct{border-color:var(--good)}
+    .opt.wrong{border-color:var(--bad)}
+    .pc{display:flex;gap:16px;flex-wrap:wrap}
+    .pc>div{flex:1;min-width:260px;background:#0a1220;border:1px solid #213044;border-radius:12px;padding:12px}
+    ul{margin:8px 0 0 18px}
+    iframe{max-width:100%}
+    /* Responsive 16:9 video wrapper */
+    .videoWrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
+    .videoWrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+    /* Warm-up images */
+    .imgRow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .imgCard{position:relative;overflow:hidden;border-radius:14px;border:1px solid #213044;background:#0a1220}
+    .imgCard img{width:100%;height:300px;object-fit:contain;display:block;cursor:zoom-in;background:#000}
+    .imgCard .tag{position:absolute;top:10px;left:10px;background:rgba(2,6,23,.65);backdrop-filter:blur(2px);padding:6px 10px;border-radius:999px;border:1px solid #334155;color:#e5e7eb;opacity:0;transition:opacity .25s ease}
+    .imgCard .tag.show{opacity:1}
+    /* Lightbox */
+    .lightbox{position:fixed;inset:0;background:rgba(2,6,23,.8);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:50}
+    .lightbox.open{display:flex}
+    .lightbox img{max-width:90vw;max-height:90vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6);cursor:zoom-out}
+    .lightbox .x{position:absolute;top:12px;right:12px;background:#0b1220;border:1px solid #334155;border-radius:10px;color:#e5e7eb;padding:8px 10px;cursor:pointer}
+    /* Media tab */
+    .mediaItem{background:#0a1220;border:1px solid #213044;border-radius:12px;padding:12px}
+    .mediaItem.highlight{outline:2px dashed #f59e0b; outline-offset:6px}
+    .mediaTitle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Deepfakes — The Power & Perils of Synthetic Reality <span class="badge">C1</span></h1>
+    <div class="sub">Single‑device lesson. Whole‑class flow — no groups. All tasks here.</div>
+    <div class="tabs" role="tablist" aria-label="Lesson sections">
+      <button class="tab active" data-tab="warmup">1) Warm‑up</button>
+      <button class="tab" data-tab="intro">2) Intro</button>
+      <button class="tab" data-tab="vocab">3) Vocabulary</button>
+      <button class="tab" data-tab="quiz">4) Quiz</button>
+      <button class="tab" data-tab="proscons">5) Pros & Cons</button>
+      <button class="tab" data-tab="debate">6) Debate</button>
+      <button class="tab" data-tab="detect">7) Detection</button>
+      <button class="tab" data-tab="reflect">Wrap‑up</button>
+      <button class="tab" data-tab="media">Media</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <!-- Warm-up -->
+  <section id="warmup" class="card two active" role="tabpanel">
+    <div>
+      <h2>Spot the Fake (Whole‑class vote)</h2>
+      <p>Study the two images and decide which one is authentic. Make your case, then click <b>Reveal answer</b>.</p>
+      <div id="warmRow" class="imgRow" aria-live="polite"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button class="btn" id="revealWarm">Reveal answer</button>
+        <button class="btn secondary" id="voteA">Vote Left</button>
+        <button class="btn secondary" id="voteB">Vote Right</button>
+        <div class="badge">Left: <span id="scoreA">0</span></div>
+        <div class="badge">Right: <span id="scoreB">0</span></div>
+      </div>
+      <p class="tiny">Tip: Look for <em>lip‑sync</em>, <em>iris reflections</em>, <em>edges</em>, <em>skin tone</em>, and <em>lighting</em>.</p>
+    </div>
+    <aside>
+      <details open>
+        <summary>Facilitator note</summary>
+        Images are randomised on each load. Use the vote buttons before revealing.
+      </details>
+    </aside>
+  </section>
+
+  <!-- Intro -->
+  <section id="intro" class="card two" role="tabpanel">
+    <div>
+      <h2>What is a Deepfake?</h2>
+      <p><span class="badge">Definition</span> A deepfake uses <b>deep learning</b> to synthesise realistic but fake <b>video</b>, <b>audio</b>, or <b>images</b> of events and people.</p>
+      <ul>
+        <li><b>Examples:</b> Mark Zuckerberg appearing to brag about having “total control of billions of people’s stolen data”, Jon Snow’s moving apology for the dismal ending to the <em>Game of Thrones</em> <b>fantasy drama</b>.</li>
+        <li><b>Formats:</b> face swaps, AI‑generated photos, and <b>voice clones</b>.</li>
+        <li><b>Makers:</b> researchers, VFX studios, hobbyists — and sometimes malicious actors.</li>
+      </ul>
+
+      <!-- Inline image strip (compact) -->
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:8px 0">
+        <figure class="frame" aria-label="Zuckerberg deepfake still" style="overflow:hidden">
+          <img src="https://img.youtube.com/vi/3f66kBwfMto/maxresdefault.jpg" alt="Mark Zuckerberg deepfake still from Spectre/Big Dada" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px" loading="lazy"/>
+          <figcaption class="tiny" style="padding:6px">Zuckerberg deepfake (Spectre/Big Dada)</figcaption>
+        </figure>
+        <figure class="frame" aria-label="Jon Snow apology deepfake still" style="overflow:hidden">
+          <img src="https://img.youtube.com/vi/lq51tne7SZY/maxresdefault.jpg" alt="Jon Snow apology deepfake still" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px" loading="lazy"/>
+          <figcaption class="tiny" style="padding:6px">Jon Snow apology deepfake</figcaption>
+        </figure>
+        <figure class="frame" aria-label="AI-generated journalist portrait example" style="overflow:hidden">
+          <img src="https://images.unsplash.com/photo-1712800786660-7c5f1b2d7e7f?q=80&w=800&auto=format&fit=crop" alt="AI-generated face portrait (illustrative of fake journalist profile)" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px" loading="lazy"/>
+          <figcaption class="tiny" style="padding:6px">Illustrative AI-generated portrait (for fake-profile discussion)</figcaption>
+        </figure>
+      </div>
+
+      <!-- Featured videos -->
+      <details open>
+        <summary>Watch: example deepfakes</summary>
+        <div class="grid" style="grid-template-columns:1fr;gap:12px">
+          <div class="videoWrap">
+            <iframe src="https://www.youtube.com/embed/3f66kBwfMto" title="Zuckerberg deepfake — 'I wish I could...' (Spectre/Big Dada)" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          </div>
+          <div class="videoWrap">
+            <iframe src="https://www.youtube.com/embed/lq51tne7SZY" title="Jon Snow apologizes — deepfake" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+          </div>
+        </div>
+      </details>
+
+      <!-- Reading text (from batch 1a) + ZAO info -->
+      <article id="reading" class="card" style="background:#0a1220;border:1px solid #1e293b">
+        <h3 style="margin-top:0">Deep Fake — In the News (Reading)</h3>
+        <p><b>Have you seen</b> Mark Zuckerberg brag about having “total control of billions of people’s stolen data”, or witnessed Jon Snow’s moving apology for the dismal ending to <em>Game of Thrones</em> (a fantasy drama)? If you answer yes — then you’ve seen a deepfake!</p>
+        <p>The 21st‑century answer to Photoshopping, deepfakes use a form of artificial intelligence called <b>deep learning</b> to make images of fake events — hence the name <b>deepfake</b>. Deepfake puts words in a politician’s mouth, replaces movie stars and much, much more.</p>
+        <h4>What are they for?</h4>
+        <p>As new techniques allow unskilled people to make deepfakes from a handful of photos, fake videos are likely to spread beyond the celebrity world to everyday media and social posts — including moments that matter, such as <b>elections</b>, when misinformation can do real damage.</p>
+        <h4>Is it just about videos?</h4>
+        <p><b>No.</b> Deepfake technology can create convincing but entirely fictional photos <b>from scratch</b>. An example is a non‑existent journalist with a realistic portrait used on professional networks. Audio can be deepfaked too, to create “voice skins” or “voice clones” of public figures; criminals have tricked companies by <b>mimicking</b> an executive’s voice on the phone.</p>
+        <h4>Who is making deepfakes?</h4>
+        <p>Everyone from academic and industrial researchers to amateur enthusiasts, visual‑effects studios and low‑budget film producers. Governments might be <b>dabbling</b> in the technology, too, as part of online strategies to <b>discredit</b> or <b>disrupt</b> groups.</p>
+        <h4>How do you spot a deepfake?</h4>
+        <p>It’s getting harder as the technology improves. Earlier, some fakes didn’t blink correctly; soon after this was publicised, new fakes learned to blink. <b>Poor‑quality</b> deepfakes are easier to spot: bad lip‑sync, patchy skin tone, flickering edges around the face, and details (hair, jewellery, teeth) that are hard to <b>render</b> well. Lighting can also be inconsistent — look at reflections on the <b>iris</b>.</p>
+        <h4>Case Study — China’s viral app <em>ZAO</em></h4>
+        <ul>
+          <li>The deepfake app <b>ZAO</b> went <b>viral</b> in China.</li>
+          <li>It hit <b>#1</b> on the iOS App Store chart.</li>
+          <li>To use it, people needed a <b>Chinese phone number</b>.</li>
+        </ul>
+      </article>
+    </div>
+    <aside>
+      <details>
+        <summary>Watch Links</summary>
+        <ul>
+          <li><a href="https://www.goodmorningamerica.com/culture/video/jon-snow-apologizes-game-thrones-deepfake-video-63758832" target="_blank">Jon Snow Apology Deepfake (Good Morning America)</a></li>
+          <li><a href="https://www.vice.com/en/article/deepfake-of-mark-zuckerberg-facebook-fake-video-policy" target="_blank">Zuckerberg Deepfake Stunt (Vice)</a></li>
+        </ul>
+      </details>
+    </aside>
+  </section>
+
+  <!-- Vocabulary -->
+  <section id="vocab" class="card" role="tabpanel">
+    <h2>Vocabulary — Match the term to the definition</h2>
+    <p class="tiny">Set A from batch 1b (12 items) and Set B from batch 2b (10 items).</p>
+    <div class="grid two">
+      <div>
+        <h3>Set A</h3>
+        <div id="vA"></div>
+        <div class="badge">Correct: <span id="okA">0</span>/12</div>
+      </div>
+      <div>
+        <h3>Set B</h3>
+        <div id="vB"></div>
+        <div class="badge">Correct: <span id="okB">0</span>/10</div>
+      </div>
+    </div>
+    <details style="margin-top:10px">
+      <summary>Personalisation task</summary>
+      Use 3–4 new words in original sentences about synthetic media.
+      <textarea id="persoVocab" class="note" placeholder="e.g., The fraudster mimicked the CEO's voice to deceive staff during a late‑night call."></textarea>
+    </details>
+  </section>
+
+  <!-- Quiz -->
+  <section id="quiz" class="card" role="tabpanel">
+    <h2>Comprehension Quiz (10)</h2>
+    <details style="margin-bottom:8px"><summary>Show reading text (reference)</summary>
+      <div class="tiny">Condensed notes for quick reference.</div>
+      <div style="max-height:300px;overflow:auto;border:1px solid #263244;border-radius:8px;padding:8px;background:#0a1220">
+        <ul>
+          <li>Deepfakes worry people because of <b>fake news</b>.</li>
+          <li>“Deep” comes from <b>deep learning</b>; “fake” means <b>not real</b>.</li>
+          <li>Faces can be replaced — even <b>presidents</b>.</li>
+          <li>They can trick people during <b>elections</b>.</li>
+          <li>China’s app is called <b>ZAO</b>; it went <b>viral</b>, hit <b>#1</b> on iOS, and needs a <b>Chinese phone number</b>.</li>
+          <li><em>Game of Thrones</em> is a <b>fantasy drama</b>.</li>
+        </ul>
+      </div>
+    </details>
+    <div id="quizHost"></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+      <button class="btn" id="startQuiz">Start / Reset</button>
+      <div class="badge">Score: <span id="quizScore">0</span>/10</div>
+    </div>
+  </section>
+
+  <!-- Pros & Cons -->
+  <section id="proscons" class="card" role="tabpanel">
+    <h2>Pros & Cons of Deepfakes</h2>
+    <div class="pc">
+      <div>
+        <h3>Advantages</h3>
+        <ul>
+          <li>Entertainment: resurrecting deceased performers (e.g., hologram tours).</li>
+          <li>Education: learn from history’s “masters” via synthetic lecturers.</li>
+          <li>Accessibility: voice clones for people who lose speech.</li>
+          <li>Satire & art: legitimate commentary and parody.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Disadvantages / Risks</h3>
+        <ul>
+          <li>Scams: voice cloning to authorise fake payments.</li>
+          <li>Misinformation: synthetic politicians during elections.</li>
+          <li>Privacy: misuse of personal photos without consent.</li>
+          <li>Erosion of trust: “video or it didn’t happen” no longer holds.</li>
+          <li>Legal gaps: unclear consent/likeness rights across jurisdictions.</li>
+        </ul>
+      </div>
+    </div>
+    <details style="margin-top:10px"><summary>Notes</summary>
+      <textarea id="pcNotes" class="note" placeholder="Summarise the class stance ..."></textarea>
+    </details>
+  </section>
+
+  <!-- Debate -->
+  <section id="debate" class="card" role="tabpanel">
+    <h2>Mini‑Debate: Ethics of Deepfakes</h2>
+    <p>Side A emphasises benefits; Side B emphasises risks. Use today’s vocabulary.</p>
+    <div class="grid two">
+      <div>
+        <h3>Side A prep</h3>
+        <textarea id="sideA" class="note" placeholder="Arguments, examples, counters ..."></textarea>
+      </div>
+      <div>
+        <h3>Side B prep</h3>
+        <textarea id="sideB" class="note" placeholder="Arguments, examples, counters ..."></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- Detection -->
+  <section id="detect" class="card two" role="tabpanel">
+    <div>
+      <h2>How to Spot a Deepfake — Checklist</h2>
+      <ul>
+        <li>Unnatural <b>blinking</b> or gaze; inconsistent eye reflections on the <b>iris</b>.</li>
+        <li>Poor <b>lip‑sync</b>; words don’t match mouth shapes.</li>
+        <li>Patchy <b>skin tone</b>; flickering edges around the face.</li>
+        <li>Hair and fine details look smeared; jewellery/teeth rendered oddly.</li>
+        <li>Lighting/shadows feel wrong or inconsistent across frames.</li>
+        <li>Audio artefacts in voice clones; robotic prosody.</li>
+      </ul>
+      <p class="tiny">Tip: reverse‑image search key frames; triangulate with reputable sources.</p>
+      <textarea id="detectNotes" class="note" placeholder="List the top three verification steps ..."></textarea>
+    </div>
+    <aside>
+      <figure class="detFig" style="margin:0">
+        <img id="detImg" src="https://tse1.mm.bing.net/th/id/OIP.11UAxFjlMAmIb_xOD3hY_wHaIP?pid=Api" alt="Deepfake detection infographic" style="width:100%;border-radius:12px;cursor:zoom-in"/>
+        <figcaption class="tiny" style="padding-top:6px">Infographic: approaches to detecting deepfakes (visual artifacts, audio analysis, and AI-based detection).</figcaption>
+      </figure>
+      <p class="tiny" style="margin-top:6px">This infographic shows different ways deepfakes can be detected — from spotting visual artifacts to using AI models trained to recognize synthetic media.</p>
+      <p class="tiny" style="margin-top:4px">Learn more: <a href="https://ai.facebook.com/datasets/dfdc/" target="_blank" rel="noopener">Deepfake Detection Challenge overview</a> · <a href="https://www.youtube.com/results?search_query=deepfake+detection+bbc+click" target="_blank" rel="noopener">Short video explainer (BBC Click)</a></p>
+      <div id="detQuiz" class="card" style="margin-top:8px;background:#0a1220;border:1px solid #213044"></div>
+      <button class="btn secondary" id="retryDet" style="margin-top:6px">Retry mini‑quiz</button>
+    </aside>
+  </section>
+
+  <!-- Wrap-up -->
+  <section id="reflect" class="card two" role="tabpanel">
+    <div>
+      <h2>Wrap‑up — Micro‑reflection</h2>
+      <p>Write a tweet‑length position (≤ 280 chars) using at least one target word.</p>
+      <textarea id="tweet" class="note" maxlength="280" placeholder="My view: deepfakes can humanise history, yet without detection literacy and policy, they risk discrediting journalism ..."></textarea>
+      <div style="display:flex;gap:10px;align-items:center"><div class="badge">Chars: <span id="charCount">0</span>/280</div><button class="btn secondary" id="saveTweet">Save</button></div>
+      <div id="tweetList" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+    </div>
+    <aside>
+      <details open>
+        <summary>Useful language</summary>
+        <ul>
+          <li>In my view / It seems evident that ...</li>
+          <li>This technology facilitates / jeopardises ...</li>
+          <li>We must scrutinise sources before we amplify them.</li>
+        </ul>
+      </details>
+    </aside>
+  </section>
+
+  <!-- Media -->
+  <section id="media" class="card" role="tabpanel">
+    <h2>Media Library — Watch & Check Understanding</h2>
+    <div id="mediaHost" class="grid" style="grid-template-columns:1fr;gap:16px"></div>
+    <div class="card" style="margin-top:8px;background:#0a1220;border:1px solid #213044">
+      <div class="mediaTitle">
+        <h3 style="margin:0">Media Mastery</h3>
+        <div class="badge">Total Score: <span id="mediaScore">0</span>/15</div>
+      </div>
+      <button class="btn secondary" id="reviewIncorrect" style="margin-top:8px">Review Incorrect Answers</button>
+      <p class="tiny" style="margin-top:6px">Tip: Click to highlight sections where answers were missed; rewatch those clips and retry.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Lightbox overlay -->
+<div id="lb" class="lightbox" aria-modal="true" role="dialog">
+  <button class="x" aria-label="Close">Close ✕</button>
+  <img alt="Zoomed image" />
+</div>
+
+<script>
+  // Tabs
+  const tabs=[...document.querySelectorAll('.tab')];
+  const panels=[...document.querySelectorAll('main section')];
+  tabs.forEach(b=>b.addEventListener('click',()=>{tabs.forEach(t=>t.classList.remove('active'));panels.forEach(p=>p.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active')}));
+
+  // Warm-up images (randomised + reveal)
+  const warmImgs=[
+    {src:'1r.jpg', label:'Real'},
+    {src:'2df.jpg', label:'Deepfake'}
+  ];
+  function mountWarmup(){
+    const row=document.getElementById('warmRow'); if(!row) return; row.innerHTML='';
+    const shuffled=[...warmImgs].sort(()=>Math.random()-0.5);
+    shuffled.forEach((it,idx)=>{
+      const fig=document.createElement('figure'); fig.className='imgCard'; fig.setAttribute('aria-label',`Warm-up image ${idx+1}`);
+      fig.innerHTML=`<img src="${it.src}" alt="${it.label} candidate"><figcaption class="tag" data-answer="${it.label}">${it.label}</figcaption>`;
+      // click-to-zoom
+      fig.querySelector('img').addEventListener('click',()=>openLightbox(it.src));
+      row.appendChild(fig);
+    });
+    const reveal=document.getElementById('revealWarm');
+    reveal.onclick=()=>{ row.querySelectorAll('.tag').forEach(t=>t.classList.add('show')); };
+  }
+  mountWarmup();
+
+  // Lightbox logic
+  const lb=document.getElementById('lb');
+  function openLightbox(src){ if(!lb) return; lb.querySelector('img').src=src; lb.classList.add('open'); }
+  function closeLightbox(){ if(!lb) return; lb.classList.remove('open'); }
+  lb?.addEventListener('click', (e)=>{ if(e.target===lb||e.target.classList.contains('x')) closeLightbox(); });
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeLightbox(); });
+
+  // Warm-up voting (single device)
+  let votesA=0,votesB=0; const sA=document.getElementById('scoreA'), sB=document.getElementById('scoreB');
+  document.getElementById('voteA').onclick=()=>{votesA++;sA.textContent=votesA};
+  document.getElementById('voteB').onclick=()=>{votesB++;sB.textContent=votesB};
+
+  // Helper: embed general media (still used for manual adds)
+  function embedMedia(url, host){
+    let node; let wrapper=null;
+    if(/(youtube\.com|youtu\.be|vimeo\.com)/i.test(url)){
+      const u=new URL(url);
+      const src=/youtu\.be/.test(url)
+        ? `https://www.youtube.com/embed/${u.pathname.slice(1)}`
+        : /youtube\.com/.test(url)
+          ? `https://www.youtube.com/embed/${u.searchParams.get('v')}`
+          : url;
+      const iframe=document.createElement('iframe');
+      iframe.src=src; iframe.title='Embedded video';
+      iframe.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.allowFullscreen=true; iframe.setAttribute('allowfullscreen','');
+      wrapper=document.createElement('div'); wrapper.className='videoWrap';
+      wrapper.appendChild(iframe); node=wrapper;
+    } else if(/\.(mp4|webm)$/i.test(url)){
+      const video=document.createElement('video'); video.controls=true; video.src=url; video.playsInline=true;
+      wrapper=document.createElement('div'); wrapper.className='videoWrap';
+      wrapper.appendChild(video); node=wrapper;
+    } else if(/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(url)){
+      const img=document.createElement('img'); img.src=url; img.alt='User media'; img.style.maxWidth='100%'; img.style.borderRadius='12px';
+      node=img;
+    } else {
+      const a=document.createElement('a'); a.href=url; a.textContent=url; a.target='_blank'; node=a;
+    }
+    const card=document.createElement('div'); card.className='card'; card.style.background='#0a1220'; card.style.border='1px solid #253046'; card.style.padding='12px';
+    card.appendChild(node); host.prepend(card);
+  }
+
+  // Vocabulary (select matching)
+  const A=[
+    ['Brag','To show off about something you have done.'],
+    ['Moving','Making you feel sad and emotional.'],
+    ['Dismal','Gloomy, sad, bad, depressing.'],
+    ['From scratch','To create something from the beginning.'],
+    ['Fraudster','Someone who makes money by deceiving people.'],
+    ['Mimicked','Copied, imitated.'],
+    ['Dabbling','To take part in an activity – but not seriously.'],
+    ['Discredit','To harm someone’s reputation.'],
+    ['Disrupt','To interrupt by causing a disturbance.'],
+    ['Render','To represent or depict something artistically.'],
+    ['Iris','The coloured circular part of the eye.'],
+    ['Supremacy','The state of being higher or more superior to others.']
+  ];
+  const B=[
+    ['Technique','method'],
+    ['Deceive','lie to'],
+    ['Replace','exchange'],
+    ['Worried','concerned'],
+    ['During','in'],
+    ['Users','operators'],
+    ['Chart','list'],
+    ['Achieved','gained'],
+    ['Fantasy','make-believe'],
+    ['Available','for sale']
+  ];
+  function mountVocab(){
+    const vA=document.getElementById('vA'); const vB=document.getElementById('vB'); vA.innerHTML=''; vB.innerHTML='';
+    const shuffle=a=>a.map(x=>x).sort(()=>Math.random()-0.5);
+    const defsA=shuffle(A.map(x=>x[1])); const defsB=shuffle(B.map(x=>x[1]));
+    let okA=0, okB=0;
+    A.forEach(([term,def])=>{ const row=document.createElement('div'); row.className='vrow'; row.innerHTML=`<div><b>${term}</b></div>`; const sel=document.createElement('select'); sel.innerHTML='<option value="">— choose definition —</option>'+defsA.map(d=>`<option>${d}</option>`).join(''); sel.onchange=()=>{ sel.classList.remove('ok','bad'); if(sel.value===def){sel.classList.add('ok'); okA++; document.getElementById('okA').textContent=okA} else { sel.classList.add('bad'); }}; row.appendChild(sel); vA.appendChild(row); });
+    B.forEach(([term,def])=>{ const row=document.createElement('div'); row.className='vrow'; row.innerHTML=`<div><b>${term}</b></div>`; const sel=document.createElement('select'); sel.innerHTML='<option value="">— choose definition —</option>'+defsB.map(d=>`<option>${d}</option>`).join(''); sel.onchange=()=>{ sel.classList.remove('ok','bad'); if(sel.value===def){sel.classList.add('ok'); okB++; document.getElementById('okB').textContent=okB} else { sel.classList.add('bad'); }}; row.appendChild(sel); vB.appendChild(row); });
+  }
+  mountVocab();
+
+  // Quiz (10) from batch 3a
+  const quizData=[
+    {q:'1) What is deepfake making people worried about?', opts:['passwords','fake news','identity theft','security'], a:1},
+    {q:'2) Where does the "deep" part of "deepfake" come from?', opts:['Deep Purple','deep thinking','deep blue seas','deep learning'], a:3},
+    {q:'3) What did the article say fake means?', opts:['not real','unreal','really','unrealized'], a:0},
+    {q:'4) Whose faces did the article say could be replaced?', opts:['cartoon characters','animals','presidents','literary characters'], a:2},
+    {q:'5) When could deepfake be used to trick people?', opts:['when they log on','during elections','when they are tired','on news websites'], a:1},
+    {q:'6) What did a deepfake app do in China?', opts:['gone viral','increased awareness','increased computer sales','caused anger'], a:0},
+    {q:'7) What is the name of the app?', opts:['Pao','Xao','Zao','Jao'], a:2},
+    {q:'8) Where is the app on the iOS App Store chart?', opts:['number one','in the middle','top ten','number four'], a:0},
+    {q:'9) What kind of drama is Game of Thrones?', opts:['a fantasy drama','a historical drama','a love drama','a comedy'], a:0},
+    {q:'10) What do people need to download the app?', opts:['a special voucher','$4.99','a Huawei phone','a Chinese phone number'], a:3}
+  ];
+  function mountQuiz(){
+    const host=document.getElementById('quizHost'); host.innerHTML=''; let score=0; const scoreEl=document.getElementById('quizScore'); scoreEl.textContent='0';
+    quizData.forEach((item,i)=>{
+      const div=document.createElement('div'); div.className='q';
+      const h=document.createElement('div'); h.textContent=item.q; div.appendChild(h);
+      item.opts.forEach((opt,idx)=>{
+        const b=document.createElement('button'); b.className='opt'; b.textContent=String.fromCharCode(97+idx)+') '+opt; b.addEventListener('click',()=>{
+          if(b.dataset.lock) return; const correct=idx===item.a; b.classList.add(correct?'correct':'wrong'); b.dataset.lock='1'; if(correct){ score++; scoreEl.textContent=String(score); }
+        }); div.appendChild(b);
+      }); host.appendChild(div);
+    });
+  }
+  document.getElementById('startQuiz').onclick=()=>mountQuiz();
+
+  // Detection mini‑quiz (3 questions)
+  const detQuizData=[
+    {q:'Which of these is NOT a method for detecting deepfakes?', opts:['Checking for unnatural blinking patterns','Analyzing audio tone shifts','Increasing video brightness to see details'], a:2},
+    {q:'What\'s one sign of a deepfake in facial movements?', opts:['Perfectly synced lips','Unnatural blinking','Consistent lighting'], a:1},
+    {q:'Why might AI models be better at detection than humans?', opts:['They never make mistakes','They can spot subtle digital artifacts invisible to humans','They only look at one frame'], a:1}
+  ];
+  function mountDetQuiz(){
+    const host=document.getElementById('detQuiz'); if(!host) return; host.innerHTML='';
+    detQuizData.forEach((item)=>{
+      const div=document.createElement('div'); div.className='q';
+      const h=document.createElement('div'); h.textContent=item.q; div.appendChild(h);
+      item.opts.forEach((opt,idx)=>{
+        const b=document.createElement('button'); b.className='opt'; b.textContent=String.fromCharCode(97+idx)+') '+opt; b.addEventListener('click',()=>{
+          if(b.dataset.lock) return; const correct=idx===item.a; b.classList.add(correct?'correct':'wrong'); b.dataset.lock='1';
+        }); div.appendChild(b);
+      }); host.appendChild(div);
+    });
+  }
+  mountDetQuiz();
+  document.getElementById('retryDet')?.addEventListener('click',()=>mountDetQuiz());
+  const det=document.getElementById('detImg'); det?.addEventListener('click',()=>openLightbox(det.src));
+
+  // Reflection tweets
+  const tweet=document.getElementById('tweet'); const cc=document.getElementById('charCount'); if(tweet){tweet.oninput=()=>cc.textContent=tweet.value.length}
+  const saveTweet=document.getElementById('saveTweet'); if(saveTweet){ saveTweet.onclick=()=>{const t=tweet.value.trim(); if(!t) return; const list=document.getElementById('tweetList'); const d=document.createElement('div'); d.className='q'; d.textContent=t; list.prepend(d); tweet.value=''; cc.textContent='0'; }}
+  
+  // =====================
+  // Media tab — Videos + 5Q quizzes + Mastery tracker
+  // =====================
+  const mediaItems=[
+    {
+      id:'m2',
+      title:'BBC Click — How to Spot a Deepfake',
+      desc:'Short, accessible demonstration of detection methods.',
+      src:'https://www.youtube.com/watch?v=RsQ1tFLwldY',
+      embed:'https://www.youtube.com/embed/RsQ1tFLwldY'
+    },
+    {
+      id:'m3',
+      title:'MIT Technology Review — Inside a Deepfake Studio',
+      desc:'Behind-the-scenes look at how deepfakes are made.',
+      src:'https://www.youtube.com/watch?v=Ro8b69VeL9U',
+      embed:'https://www.youtube.com/embed/Ro8b69VeL9U'
+    },
+    {
+      id:'m4',
+      title:'Researcher Explains Deepfake Videos | WIRED',
+      desc:'WIRED interview: a researcher breaks down how deepfakes work and what to watch for.',
+      src:'https://www.youtube.com/watch?v=u2lX70U7N0c',
+      embed:'https://www.youtube.com/embed/u2lX70U7N0c'
+    }
+  ];
+
+  const mediaQuizzes={
+    m2:[
+      {q:'Which visual cue can reveal a deepfake?', opts:['Natural blinking','Consistent earrings','Inconsistent lighting/shadows','Perfect lip-sync'], a:2},
+      {q:'Audio deepfakes may include:', opts:['Crystal-clear studio quality only','Robotic prosody or odd intonation','No background noise ever','Ultra-low bitrate artifacts only'], a:1},
+      {q:'A good verification step is to:', opts:['Ask friends on group chat','Reverse-image search key frames','Comment aggressively','Lower the brightness'], a:1},
+      {q:'A limitation of human detection is:', opts:['We see every pixel','We never miss artifacts','We can be fooled by realism and context','We always know the source'], a:2},
+      {q:'A cross-check technique is to:', opts:['Trust anonymous accounts','Triangulate with reputable outlets','Assume it’s satire','Ignore timestamps'], a:1}
+    ],
+    m3:[
+      {q:'A deepfake pipeline may use:', opts:['GANs/autoencoders','Blockchains','GPS','BIOS settings'], a:0},
+      {q:'Data collection for a face model needs:', opts:['A handful to many images of the subject','Medical records','Phone IMEI','3D prints'], a:0},
+      {q:'A typical artifact in early fakes was:', opts:['Perfect hair','Mismatched jawline/edges','Ideal lighting','Seamless jewellery'], a:1},
+      {q:'One practical constraint for better fakes is:', opts:['Compute and time for training','Moon phases','Screen size','SD card brand'], a:0},
+      {q:'Ethical production requires:', opts:['Consent and context','Silence','Anonymity','No disclosure'], a:0}
+    ],
+    m4:[
+      {q:'A common weak spot in face-swaps is around:', opts:['Teeth and jewellery','Forehead only','Neck only','Shoulders only'], a:0},
+      {q:'Why share detection tips publicly?', opts:['To help defences and literacy','To hide results','For illegal activity','To reduce video sizes'], a:0},
+      {q:'One viewer habit to practise:', opts:['Share immediately','Be sceptical and verify','Ignore source context','Assume satire'], a:1},
+      {q:'Which technical approach powers many deepfakes?', opts:['GANs/autoencoders','Spreadsheets','Routers','QR codes'], a:0},
+      {q:'A helpful platform measure is:', opts:['Watermarking/fingerprinting','Ban all videos','Force 4K uploads','Turn off captions'], a:0}
+    ]
+  };
+
+  const mediaScores={};
+
+  function mountMedia(){
+    const host=document.getElementById('mediaHost'); if(!host) return; host.innerHTML='';
+
+    mediaItems.forEach(item=>{
+      const card=document.createElement('div'); card.className='mediaItem'; card.id=item.id;
+      const title=document.createElement('div'); title.className='mediaTitle';
+      title.innerHTML=`<h3 style="margin:0">${item.title}</h3><a class="tiny" href="${item.src}" target="_blank" rel="noopener">Open source ↗</a>`;
+      card.appendChild(title);
+
+      const wrap=document.createElement('div'); wrap.className='videoWrap';
+      const iframe=document.createElement('iframe'); iframe.src=item.embed; iframe.title=item.title; iframe.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
+      card.appendChild(wrap);
+
+      const p=document.createElement('p'); p.className='tiny'; p.textContent=item.desc; card.appendChild(p);
+
+      const quiz=document.createElement('div'); quiz.className='card'; quiz.style.background='#0a1220'; quiz.style.border='1px solid #213044';
+      card.appendChild(quiz);
+
+      const controls=document.createElement('div'); controls.style.display='flex'; controls.style.gap='8px'; controls.style.alignItems='center'; controls.style.marginTop='6px';
+      const retry=document.createElement('button'); retry.className='btn secondary'; retry.textContent='Retry quiz';
+      const score=document.createElement('div'); score.className='badge'; score.innerHTML='Score: <span>0</span>/5';
+      controls.appendChild(retry); controls.appendChild(score); card.appendChild(controls);
+
+      host.appendChild(card);
+
+      function mountOne(){
+        quiz.innerHTML=''; mediaScores[item.id]=0; score.querySelector('span').textContent='0';
+        (mediaQuizzes[item.id]||[]).forEach(qd=>{
+          const div=document.createElement('div'); div.className='q';
+          const h=document.createElement('div'); h.textContent=qd.q; div.appendChild(h);
+          qd.opts.forEach((opt,idx)=>{
+            const b=document.createElement('button'); b.className='opt'; b.textContent=String.fromCharCode(97+idx)+') '+opt;
+            b.addEventListener('click',()=>{
+              if(b.dataset.lock) return; const correct=idx===qd.a; b.classList.add(correct?'correct':'wrong'); b.dataset.lock='1'; if(correct){ mediaScores[item.id]++; score.querySelector('span').textContent=String(mediaScores[item.id]); updateMediaTotal(); }
+            });
+            div.appendChild(b);
+          });
+          quiz.appendChild(div);
+        });
+        updateMediaTotal();
+      }
+      mountOne();
+      retry.addEventListener('click',()=>{ card.classList.remove('highlight'); mountOne(); window.scrollTo({top:card.offsetTop-80,behavior:'smooth'}); });
+    });
+  }
+
+  function updateMediaTotal(){
+    const total = Object.values(mediaScores).reduce((a,b)=>a+(b||0),0);
+    const el=document.getElementById('mediaScore'); if(el) el.textContent=String(total);
+  }
+
+  document.getElementById('reviewIncorrect')?.addEventListener('click',()=>{
+    const firstBad = mediaItems.find(m=> (mediaScores[m.id]||0) < 5 );
+    mediaItems.forEach(m=>{
+      const card=document.getElementById(m.id); if(!card) return; const ok=(mediaScores[m.id]||0)===5; card.classList.toggle('highlight', !ok);
+    });
+    if(firstBad){ document.getElementById(firstBad.id)?.scrollIntoView({behavior:'smooth',block:'center'}); }
+  });
+
+  // Mount everything that needs initialisation
+  mountMedia();
+
+  // expose for manual refresh if needed
+  window.mountWarmup = mountWarmup;
+</script>
+</body>
+</html>
